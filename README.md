@@ -61,7 +61,7 @@ A interface consulta periodicamente a API para atualizar as informações.
 ## Estrutura do projeto
 
 ```text
-smart-parking/
+Estacionamento_Inteligente/
 │
 ├── backend/
 │   ├── main.py
