@@ -259,6 +259,15 @@ O projeto integra conceitos de Engenharia de Computação, Sistemas Embarcados, 
 
 A proposta é demonstrar como a integração entre hardware, software e visão computacional pode ser aplicada à automação e ao monitoramento de estacionamentos.
 
+## Equipe de desenvolvimento
+
+Projeto desenvolvido colaborativamente por estudantes de Engenharia de Computação.
+
+- Bruno Moretto Alves
+- Gabriel Aparecido Vendramini Palma
+- Pedro Eduardo Pascuotte
+
+Todos os integrantes participaram do desenvolvimento e da construção da solução EstacionaAI.
 ---
 
 **EstacionaAI — Engenharia de Computação**
