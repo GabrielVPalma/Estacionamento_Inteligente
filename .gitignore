@@ -221,3 +221,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Smart Parking - Credenciais ESP32
+esp32/secrets.h
+
+# Ambientes e configurações locais
+.vscode/

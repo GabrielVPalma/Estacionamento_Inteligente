@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Parking</title>
+<script>
+  // ===== CONFIGURAÇÃO =====
+  // Troque aqui pelo IP da rede local se necessário, ex.: "http://192.168.0.10:5000"
+  const API_BASE_URL = "http://localhost:5000";
+  const API_VAGAS_PATH = "/api/vagas";
+  const INTERVALO_MS = 1000;
+</script>
+<style>
+:root{--bg:#f2f2ef;--fg:#1d1d1b;--panel:#fff;--line:#c9c9c3;--asphalt:#2f2f30;--paint:#f4f4f0;--free:#2e9e5b;--busy:#d23a3a;--warn:#b7791f}
+@media (prefers-color-scheme:dark){:root{--bg:#161616;--fg:#ececea;--panel:#222;--line:#3a3a3a;--warn:#e6b450}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 "Trebuchet MS","Segoe UI",Arial,sans-serif;padding:20px}
+main{max-width:980px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-size:1.5rem;margin:0}
+#conn{font-size:.85rem;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);display:flex;align-items:center;gap:6px}
+#conn i{width:9px;height:9px;border-radius:50%;background:var(--free)}
+#conn.off{color:var(--warn);border-color:var(--warn)}
+#conn.off i{background:var(--warn);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){#conn.off i{animation:none}}
+.counters{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.counter{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.counter b{display:block;font-size:1.9rem;line-height:1.1}
+.counter span{font-size:.9rem;opacity:.75}
+.counter.free b{color:var(--free)}
+.counter.busy b{color:var(--busy)}
+.lot{background:var(--asphalt);border-radius:12px;padding:20px;overflow-x:auto}
+.lot-in{min-width:640px}
+.row{display:flex;border:3px solid var(--paint);height:170px}
+.spot{flex:1;border-right:3px solid var(--paint);background:var(--free);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:background .25s}
+.spot:last-of-type{border-right:none}
+.spot.busy{background:var(--busy)}
+.spot svg{width:38px;height:38px;fill:#fff}
+.id{font-size:1.8rem;font-weight:700}
+.st{font-size:.9rem}
+.hatch{width:50px;flex:none;border-left:3px solid var(--paint);background:repeating-linear-gradient(135deg,var(--paint) 0 3px,transparent 3px 22px)}
+.road{height:110px;display:flex;align-items:center;justify-content:space-between;padding:0 40px}
+.road svg{width:90px;fill:var(--paint)}
+.note{margin-top:12px;font-size:.85rem;opacity:.7}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Smart Parking</h1>
+    <div id="conn" role="status" aria-live="polite"><i></i><span>Conectando...</span></div>
+  </header>
+
+  <div class="counters">
+    <div class="counter"><b id="cTotal">10</b><span>Total de vagas</span></div>
+    <div class="counter busy"><b id="cBusy">0</b><span>Ocupadas</span></div>
+    <div class="counter free"><b id="cFree">10</b><span>Livres</span></div>
+  </div>
+
+  <div class="lot"><div class="lot-in">
+    <div class="row" id="top"></div>
+    <div class="road" aria-hidden="true">
+      <svg viewBox="0 0 90 50"><path d="M0 25 L28 5 V18 H90 V32 H28 V45 Z"/></svg>
+      <svg viewBox="0 0 90 50"><path d="M90 25 L62 5 V18 H0 V32 H62 V45 Z"/></svg>
+    </div>
+    <div class="row" id="bottom"></div>
+  </div></div>
+  <p class="note" id="note"></p>
+</main>
+
+<script>
+const TODAS_AS_VAGAS = ["A1","A2","A3","A4","A5","A6","A7","A8","A9","A10"];
+const ESPECIAIS = { A5: "cadeirante", A10: "idoso" };
+
+const ICON_CARRO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 11l1.6-4.4A2 2 0 0 1 9 5.3h6a2 2 0 0 1 1.9 1.3L18.5 11H20a1 1 0 0 1 1 1v5h-2v1.5a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1V17H8v1.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V17H3v-5a1 1 0 0 1 1-1zm2.1 0h8.8l-1-2.8a.5.5 0 0 0-.5-.3h-5.8a.5.5 0 0 0-.5.3zM6.5 13.2a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm11 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/></svg>';
+const ICON_PCD = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="3.5" r="2"/><path d="M10 7h2v6h5l2.5 5-1.8.9L16 15h-6zM8.5 10.2A5 5 0 1 0 15 17.5h-2a3 3 0 1 1-4.5-2.6z"/></svg>';
+const ICON_IDOSO = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="15" cy="4" r="2.2"/><path d="M9 21v-9l3-4 3 1 1 3 2 1-.8 1.7-3.2-1.5-1 1.5 2 3.3V21h-2v-3l-2-3v6zM19 14h1.5v7H19z"/></svg>';
+
+const el = id => document.getElementById(id);
+
+function renderizar(ocupadas) {
+  const top = el("top"), bottom = el("bottom");
+  top.innerHTML = ""; bottom.innerHTML = "";
+  TODAS_AS_VAGAS.forEach((id, i) => {
+    const ocupada = ocupadas.includes(id);
+    const d = document.createElement("div");
+    d.className = "spot" + (ocupada ? " busy" : "");
+    d.setAttribute("role", "img");
+    d.setAttribute("aria-label", `Vaga ${id}${ESPECIAIS[id] ? " (" + ESPECIAIS[id] + ")" : ""}: ${ocupada ? "ocupada" : "livre"}`);
+    const icone = ocupada ? ICON_CARRO : (ESPECIAIS[id] === "cadeirante" ? ICON_PCD : ESPECIAIS[id] === "idoso" ? ICON_IDOSO : "");
+    d.innerHTML = `${icone}<span class="id">${id}</span><span class="st">${ocupada ? "Ocupada" : "Livre"}</span>`;
+    (i < 5 ? top : bottom).appendChild(d);
+    if (id === "A5") { const h = document.createElement("div"); h.className = "hatch"; top.appendChild(h); }
+  });
+  const n = ocupadas.length;
+  el("cTotal").textContent = TODAS_AS_VAGAS.length;
+  el("cBusy").textContent = n;
+  el("cFree").textContent = TODAS_AS_VAGAS.length - n;
+}
+
+function setConexao(ok) {
+  const c = el("conn");
+  c.classList.toggle("off", !ok);
+  c.querySelector("span").textContent = ok ? "Conectado" : "Desconectado do servidor / Tentando reconectar...";
+}
+
+let emAndamento = false;
+async function atualizar() {
+  if (emAndamento) return; // evita requisições sobrepostas
+  emAndamento = true;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 3000);
+  try {
+    const resp = await fetch(API_BASE_URL + API_VAGAS_PATH, { method: "GET", cache: "no-store", signal: ctrl.signal });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const dados = await resp.json();
+    if (!dados || !Array.isArray(dados.vagas_ocupadas)) throw new Error("Formato inesperado");
+    // Considera apenas IDs do universo A1..A10, sem repetições
+    const validas = [...new Set(dados.vagas_ocupadas.filter(v => TODAS_AS_VAGAS.includes(v)))];
+    renderizar(validas);
+    setConexao(true);
+  } catch (e) {
+    setConexao(false); // mantém o último estado exibido e tenta de novo no próximo ciclo
+  } finally {
+    clearTimeout(t);
+    emAndamento = false;
+  }
+}
+
+el("note").textContent = "Fonte de dados: " + API_BASE_URL + API_VAGAS_PATH + " (atualização a cada " + INTERVALO_MS / 1000 + " s)";
+renderizar([]);
+atualizar();
+setInterval(atualizar, INTERVALO_MS);
+</script>
+</body>
+</html>
