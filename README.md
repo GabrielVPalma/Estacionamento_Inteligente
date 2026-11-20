@@ -96,8 +96,8 @@ Antes de executar o projeto, é necessário ter:
 ### 1. Clonar o repositório
 
 ```bash
-git clone <URL_DO_REPOSITORIO>
-cd smart-parking
+git clone https://github.com/GabrielVPalma/Estacionamento_Inteligente.git
+cd Estacionamento_Inteligente
 ```
 
 ### 2. Criar o ambiente virtual
